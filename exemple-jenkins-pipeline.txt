@@ -1,0 +1,54 @@
+node {
+ properties([
+  buildDiscarder(logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '20', numToKeepStr: '40')),
+  parameters([
+    choice(choices: 'NONE\nSUCCESS\nFAIL', description: '', name: 'status'), 
+    text(defaultValue: '<YOUR_JOB_NAME>', description: '', name: 'mongodb')
+  ]),
+  pipelineTriggers([
+   [$class: 'PeriodicFolderTrigger', interval: '1d'],
+   [$class: 'GenericTrigger',
+    genericVariables: [
+    ],
+    genericRequestVariables: [
+     [key: 'status', regexpFilter: '']
+    ],
+    genericHeaderVariables: [
+    ],
+    regexpFilterText: '',
+    regexpFilterExpression: ''
+   ]
+  ])
+ ])
+
+
+ stage("build") {
+    script {
+		//mongodb-backup-s3 call url with "status" equals to SUCCESS or FAIL
+		//NONE is called by jenkins to check the last build executed
+        if (status == 'SUCCESS') {
+            echo "Backup success"
+        }else if (status == 'FAIL') {
+            echo "Backup ${params.mongodb} FAIL"
+            emailext body: "Backup mongo fail for ${params.mongodb}", subject: "Backup mongo fail for ${params.mongodb}", to: 'example@toto.com'
+            error("Backup fail for ${params.mongodb}")
+        }else if (status == 'NONE') {
+			//Job scheduled every x day by jenkins himself and not mongodb-backup-s3
+			//If no build has been executed during the last day, we send an email
+            echo 'Check last backup';
+            b=currentBuild.getPreviousBuild()
+            while(b!=null && b.result!='ABORTED') {
+                //we go back in time until the last check build (they completed with ABORTED status)
+                if(b.result=='SUCCESS'){
+                    //A backup has been found during the last day
+                    currentBuild.result = 'ABORTED'
+                    error('1 Backup during last day. Ok')
+                }
+                b = b.getPreviousBuild();
+            }
+            emailext body: 'Backup mongo missing $mongodb', subject: 'Backup mongo missing $mongodb', to: 'example@toto.com'
+            error("Backup mongo missing")
+        }
+    }
+ }
+}

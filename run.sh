@@ -20,6 +20,19 @@ S3PATH="s3://$BUCKET/$BACKUP_FOLDER"
 # Export AWS Credentials into env file for cron job
 printenv | sed 's/^\([a-zA-Z0-9_]*\)=\(.*\)$/export \1="\2"/g' | grep -E "^export AWS" > /root/project_env.sh
 
+echo "=> Creating notifier script"
+rm -f /notifier.sh
+cat <<EOF >> /notifier.sh
+#!/bin/bash
+if [ -n "${NOTIFIER_URL}" ]; then
+    echo "notifier \${1}"
+    URL=$NOTIFIER_URL"&status=\${1}"
+    echo "CALL URL : \${URL}"
+    curl -vs \${URL} 2>&1
+fi
+EOF
+chmod +x /notifier.sh
+
 echo "=> Creating backup script"
 rm -f /backup.sh
 cat <<EOF >> /backup.sh
@@ -32,8 +45,10 @@ aws configure set default.s3.signature_version s3v4
 echo "=> Backup started"
 if mongodump --host ${MONGODB_HOST} --port ${MONGODB_PORT} ${USER_STR}${PASS_STR}${DB_STR} --archive=\${BACKUP_NAME} --gzip ${EXTRA_OPTS} && aws s3 cp \${BACKUP_NAME} \${S3BACKUP} ${REGION_STR} && aws s3 cp \${S3BACKUP} \${S3LATEST} ${REGION_STR} && rm \${BACKUP_NAME} ;then
     echo "   > Backup succeeded"
+    notifier "SUCCESS"
 else
     echo "   > Backup failed"
+    notifier "FAIL"
 fi
 echo "=> Done"
 EOF

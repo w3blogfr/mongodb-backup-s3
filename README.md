@@ -141,3 +141,37 @@ docker exec mongodb-backup-s3 /restore.sh
 ## Acknowledgements
 
   * forked from [halvves/mongodb-backup-s3](https://github.com/halvves/mongodb-backup-s3) fork of [futurist](https://github.com/futurist)'s fork of [tutumcloud/mongodb-backup](https://github.com/tutumcloud/mongodb-backup)
+
+
+## Monitoring
+
+By adding NOTIFIER_URL, during the backup process, the script will call an url with status flag SUCCESS or FAIL.
+
+Url should contain the ? because status is added with &status
+
+### With Jenkins
+
+This url can be jenkins. You have to create one job per database.
+
+Thanks to that notification, Jenkins could be able to automatically send you an email 
+- in case of backup failure
+- in case nothing happen during the last 24 hours
+
+You can find an example with file "exemple-jenkins-pipeline.txt" in this repo.
+
+In Jenkins, create a new pipeline project, copy/paste content from jenkins-pipeline.
+Change <YOUR_JOB_NAME> by the name of your job.
+
+Adapt the email address in the pipeline script.
+
+Then execute the build twice to take the pipeline into account. The second time, you should receive an email. The url is ready.
+
+Use the NOTIFIER_URL as following:
+https://<MY_JENKINS_HOST>/generic-webhook-trigger/invoke?job=<YOUR_JOB_NAME>?&mongodb=<YOUR_DB_NAME>
+
+Ajouter dans les variables d'environnment
+- NOTIFIER_URL=https://<MY_JENKINS_HOST>/generic-webhook-trigger/invoke?job=monitor-mongo-backup?&mongodb=myDbName&status=SUCCESS
+
+Each days, the script will be executed to check if one backup has been doned in last 24 hours. A email alert will be sended in this case.
+
+
