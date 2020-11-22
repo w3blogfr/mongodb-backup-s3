@@ -49,13 +49,18 @@ if [[( -n "\${1}" )]];then
 else
     RESTORE_ME=latest.dump.gz
 fi
+if [ $# -lt 2 ]
+then
+    RESTORE_OPT=\${2}
+fi
 S3RESTORE=${S3PATH}\${RESTORE_ME}
 aws configure set default.s3.signature_version s3v4
 echo "=> Restore database from \${RESTORE_ME}"
-if aws s3 cp \${S3RESTORE} \${RESTORE_ME} ${REGION_STR} && mongorestore --host ${MONGODB_HOST} --port ${MONGODB_PORT} ${USER_STR}${PASS_STR}${DB_STR} --drop --archive=\${RESTORE_ME} --gzip && rm \${RESTORE_ME}; then
-    echo "   Restore succeeded"
+echo "RESTORE OPTIONS : \${RESTORE_OPT}"
+if aws s3 cp \${S3RESTORE} \${RESTORE_ME} ${REGION_STR} && mongorestore --host ${MONGODB_HOST} --port ${MONGODB_PORT} ${USER_STR}${PASS_STR}${DB_STR} \${RESTORE_OPT} --archive=\${RESTORE_ME} --gzip && rm \${RESTORE_ME}; then
+    echo "Restore succeeded"
 else
-    echo "   Restore failed"
+    echo "Restore failed"
 fi
 echo "=> Done"
 EOF
@@ -66,11 +71,12 @@ echo "=> Creating list script"
 rm -f /listbackups.sh
 cat <<EOF >> /listbackups.sh
 #!/bin/bash
-aws s3 ls ${S3PATH} \${REGION_STR}
+aws s3 ls ${S3PATH} ${REGION_STR}
 EOF
 chmod +x /listbackups.sh
 echo "=> List script created"
 
+ln -s /notifier.sh /usr/bin/notifier
 ln -s /restore.sh /usr/bin/restore
 ln -s /backup.sh /usr/bin/backup
 ln -s /listbackups.sh /usr/bin/listbackups
