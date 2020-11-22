@@ -1,0 +1,6 @@
+version: '2'
+
+services:
+ mongodb-backup-s3:
+  image: w3blogfr/mongodb-backup-s3
+  build: .
